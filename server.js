@@ -1,120 +1,119 @@
-require("dotenv").config();
-
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+require("dotenv").config();
 
 const app = express();
-const PORT = process.env.PORT || 8081;
 
-// ===============================
-// Middleware (ORDER IS IMPORTANT)
-// ===============================
-app.use(cors());
-app.use(express.json());               // ✅ must be before routes
-app.use(express.urlencoded({ extended: true }));
+/* ===============================
+   MIDDLEWARE (VERY IMPORTANT)
+================================ */
+app.use(
+  cors({
+    origin: "*", // allow all origins (frontend, Netlify, localhost)
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type"]
+  })
+);
 
-// ===============================
-// Admin Credentials
-// ===============================
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "admin123";
+app.use(express.json());
 
-// ===============================
-// MongoDB Connection
-// ===============================
+// Handle preflight requests
+app.options("*", cors());
+
+/* ===============================
+   MONGODB CONNECTION
+================================ */
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.error("❌ MongoDB Error:", err));
 
-// ===============================
-// Contact Schema & Model
-// ===============================
-const contactSchema = new mongoose.Schema(
+/* ===============================
+   SCHEMA & MODEL
+================================ */
+const ContactSchema = new mongoose.Schema(
   {
     name: String,
     email: String,
     phone: String,
-    message: String,
+    message: String
   },
   { timestamps: true }
 );
 
-const Contact = mongoose.model("Contact", contactSchema);
+const Contact = mongoose.model("Contact", ContactSchema);
 
-// ===============================
-// Test Route
-// ===============================
+/* ===============================
+   TEST ROUTE
+================================ */
 app.get("/", (req, res) => {
-  res.send("Backend is running successfully 🚀");
+  res.send("Backend is running successfully");
 });
 
-// ===============================
-// PUBLIC: Contact Form
-// ===============================
+/* ===============================
+   CONTACT FORM API
+================================ */
 app.post("/contact", async (req, res) => {
   try {
     const { name, email, phone, message } = req.body;
 
-    const newContact = new Contact({ name, email, phone, message });
-    await newContact.save();
+    if (!name || !email || !phone || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required"
+      });
+    }
 
-    res.json({ success: true });
+    await Contact.create({ name, email, phone, message });
+
+    res.json({
+      success: true,
+      message: "Message saved successfully"
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false });
+    console.error("❌ Contact API Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
   }
 });
 
-// ===============================
-// ADMIN LOGIN (FIXED + SAFE)
-// ===============================
+/* ===============================
+   ADMIN LOGIN API
+================================ */
 app.post("/admin/login", (req, res) => {
-  console.log("📥 Login body:", req.body); // 🔍 debug log
+  const { username, password } = req.body;
 
-  const username = req.body?.username;
-  const password = req.body?.password;
-
-  if (!username || !password) {
-    return res.status(400).json({
-      success: false,
-      message: "Missing credentials",
-    });
-  }
-
-  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-    return res.json({
-      success: true,
-      message: "Login successful",
-    });
+  if (username === "admin" && password === "admin123") {
+    return res.json({ success: true });
   }
 
   res.status(401).json({
     success: false,
-    message: "Invalid credentials",
+    message: "Invalid credentials"
   });
 });
 
-// ===============================
-// ADMIN: Get contacts
-// ===============================
+/* ===============================
+   ADMIN DASHBOARD APIs
+================================ */
 app.get("/admin/contacts", async (req, res) => {
-  const contacts = await Contact.find().sort({ createdAt: -1 });
-  res.json({ success: true, data: contacts });
+  const data = await Contact.find().sort({ createdAt: -1 });
+  res.json({ success: true, data });
 });
 
-// ===============================
-// ADMIN: Delete contact
-// ===============================
 app.delete("/admin/contact/:id", async (req, res) => {
   await Contact.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
-// ===============================
-// Start Server
-// ===============================
+/* ===============================
+   START SERVER
+================================ */
+const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
