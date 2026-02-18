@@ -6,20 +6,17 @@ require("dotenv").config();
 const app = express();
 
 /* ===============================
-   MIDDLEWARE (VERY IMPORTANT)
+   MIDDLEWARE (EXPRESS 5 SAFE)
 ================================ */
 app.use(
   cors({
-    origin: "*", // allow all origins (frontend, Netlify, localhost)
-    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    origin: "*",
+    methods: ["GET", "POST", "DELETE"],
     allowedHeaders: ["Content-Type"]
   })
 );
 
 app.use(express.json());
-
-// Handle preflight requests
-app.options("*", cors());
 
 /* ===============================
    MONGODB CONNECTION
